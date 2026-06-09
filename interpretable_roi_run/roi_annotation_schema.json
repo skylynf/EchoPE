@@ -1,0 +1,37 @@
+{
+  "description": "JSON or JSONL schema for manually annotated anatomical ROI polygons. Coordinates are pixel coordinates in the 224x224 preprocessed frame used by EchoPrime attribution maps. One JSONL line may contain one case.",
+  "case_example": {
+    "case_id": "test_example_12345678",
+    "path": "/absolute/path/to/video.mp4",
+    "coarse_view": "A4",
+    "frame_index": 7,
+    "regions": {
+      "rv": {
+        "polygon": [[78, 64], [116, 70], [120, 126], [83, 132]]
+      },
+      "lv": {
+        "polygon": [[121, 72], [167, 79], [170, 141], [126, 132]]
+      },
+      "septum": {
+        "polygon": [[113, 70], [124, 73], [128, 133], [116, 131]]
+      },
+      "d_sign_region": {
+        "polygon": [[100, 82], [143, 80], [146, 125], [103, 128]]
+      },
+      "rv_lv_boundary": {
+        "polygon": [[110, 68], [128, 70], [130, 134], [112, 132]]
+      }
+    }
+  },
+  "recommended_regions_by_view": {
+    "A4": ["rv", "lv", "septum", "rv_lv_boundary"],
+    "PSS": ["lv", "septum", "d_sign_region"],
+    "Subcostal": ["rv", "lv", "septum"],
+    "PSL": ["lv", "rv", "septum"]
+  },
+  "notes": [
+    "Manual anatomy masks are optional. Scripts always support weak automatic acquisition-context masks.",
+    "If a region is uncertain, omit it rather than drawing a low-confidence polygon.",
+    "For paper figures, prefer A4 and PSS where RV dilation and D-sign related anatomy are interpretable."
+  ]
+}

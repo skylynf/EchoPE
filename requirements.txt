@@ -1,0 +1,26 @@
+# EchoPE experiment dependencies.
+# Versions are pinned to the exact environment used for the manuscript
+# (Ubuntu 22.04.5 LTS, Python 3.11.13, NVIDIA RTX A6000, CUDA 12.8, cuDNN 9.19.0).
+#
+# PyTorch / torchvision are CUDA 12.8 builds. Install them from the official
+# PyTorch index, e.g.:
+#   pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+# then install the remaining packages with:
+#   pip install -r requirements.txt
+#
+# The EchoPrime base model code (echo_prime/, utils/, assets/, model_data/)
+# is NOT included here. See README "Installation" for how to obtain it.
+
+torch==2.11.0
+torchvision==0.26.0
+numpy==2.4.4
+pandas==3.0.2
+scikit-learn==1.8.0
+scipy==1.17.1
+matplotlib==3.10.8
+seaborn==0.13.2
+umap-learn==0.5.12
+opencv-python-headless==4.13.0.92
+Pillow==12.2.0
+transformers==4.57.0
+tqdm==4.67.3
