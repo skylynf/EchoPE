@@ -48,8 +48,8 @@ from train_lora import (  # noqa: E402
     samples_from_feature_cache,
 )
 
-# 从 pe_run 导入冻结特征的基线组件
-PE_RUN = HERE.parent / "pe_run"
+# 从 baseline 导入冻结特征的基线组件
+PE_RUN = HERE.parent / "baseline"
 sys.path.insert(0, str(PE_RUN))
 from train_pe_classifier import (  # noqa: E402
     CACHE_FILE,
@@ -102,7 +102,7 @@ def run_baseline(
     val_loader = DataLoader(make_ds(val_idx), batch_size=128, shuffle=False)
     test_loader = DataLoader(make_ds(test_idx), batch_size=128, shuffle=False)
 
-    # 使用 pe_run 的分类头构建器（兼容其 args namespace）
+    # 使用 baseline 的分类头构建器（兼容其 args namespace）
     baseline_args = argparse.Namespace(
         hidden=args.hidden, dropout=args.head_dropout,
         num_blocks=args.num_blocks,
@@ -347,7 +347,7 @@ def main() -> None:
     cache_path = Path(CACHE_FILE)
     if not cache_path.exists():
         print(f"[ERROR] 特征缓存不存在: {cache_path}")
-        print("请先运行 pe_run/train_pe_classifier.py 提取特征。")
+        print("请先运行 baseline/train_pe_classifier.py 提取特征。")
         sys.exit(1)
 
     cache = torch.load(cache_path, map_location="cpu")
@@ -365,7 +365,7 @@ def main() -> None:
             "\n[ERROR] LoRA 需要可用的视频路径，但当前样本数为 0。\n"
             f"  已尝试数据集目录: {Path(args.dataset).resolve()}\n"
             "  请任选其一：\n"
-            "  1) 在 pe_run 重新提取特征并写入 paths：\n"
+            "  1) 在 baseline 重新提取特征并写入 paths：\n"
             "       python train_pe_classifier.py --force-extract\n"
             "  2) 或指定 hope_dataset 根目录（默认在 EchoPrime 上一级）：  --dataset /path/to/hope_dataset"
         )

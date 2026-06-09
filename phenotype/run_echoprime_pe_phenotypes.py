@@ -44,7 +44,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("experiments/text_run/results"),
+        default=Path("experiments/phenotype/results"),
         help="输出目录（相对 EchoPrime 仓库根）",
     )
     ap.add_argument(

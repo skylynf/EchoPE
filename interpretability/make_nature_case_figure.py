@@ -16,8 +16,8 @@ from matplotlib.colors import LinearSegmentedColormap, to_rgb
 
 HERE = Path(__file__).resolve().parent
 EXP_ROOT = HERE.parent
-FULL_RUN_ROOT = EXP_ROOT / "full_run"
-LORA_RUN_ROOT = EXP_ROOT / "lora_run"
+FULL_RUN_ROOT = EXP_ROOT / "classification"
+LORA_RUN_ROOT = EXP_ROOT / "finetuning"
 ORIG_CWD = Path.cwd().resolve()
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
@@ -40,7 +40,7 @@ from extract_attributions import (  # noqa: E402
     softmax_prob,
 )
 from load_interpret_model import load_interpret_artifacts  # noqa: E402
-from lora_run.train_lora import preprocess_single_video  # noqa: E402
+from finetuning.train_lora import preprocess_single_video  # noqa: E402
 
 
 DEFAULT_CASE_ID = "test_936692778d9241eba7872e79e8b2af1b_f0e46537"
@@ -49,15 +49,15 @@ DEFAULT_MODELS = ("frozen_head", "lora_kd_combo", "full_finetune")
 MODEL_SPECS = {
     "frozen_head": {
         "display_name": "Frozen head",
-        "checkpoint": EXP_ROOT / "full_run" / "outputs_frozen_head" / "seed-2024" / "pooled" / "best_checkpoint.pt",
+        "checkpoint": EXP_ROOT / "classification" / "outputs_frozen_head" / "seed-2024" / "pooled" / "best_checkpoint.pt",
     },
     "lora_kd_combo": {
         "display_name": "LoRA + KD",
-        "checkpoint": EXP_ROOT / "full_run" / "outputs_lora_kd_combo" / "seed-2024" / "pooled" / "best_checkpoint.pt",
+        "checkpoint": EXP_ROOT / "classification" / "outputs_lora_kd_combo" / "seed-2024" / "pooled" / "best_checkpoint.pt",
     },
     "full_finetune": {
         "display_name": "Full finetune",
-        "checkpoint": EXP_ROOT / "full_run" / "outputs" / "seed-2024" / "pooled" / "best_checkpoint.pt",
+        "checkpoint": EXP_ROOT / "classification" / "outputs" / "seed-2024" / "pooled" / "best_checkpoint.pt",
     },
 }
 

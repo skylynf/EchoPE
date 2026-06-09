@@ -8,7 +8,7 @@ PE 分类实验脚本
   ├── Normal/{A4,PSS}/*.mkv
   └── PE/{A4,PSS}/*.mkv
 
-用法（在 pe_run 目录下）：
+用法（在 baseline 目录下）：
   ../.venv/bin/python train_pe_classifier.py                          # 默认 MLP 头
   ../.venv/bin/python train_pe_classifier.py --head residual          # 残差 MLP
   ../.venv/bin/python train_pe_classifier.py --head attention         # Transformer 注意力头
@@ -164,7 +164,7 @@ def extract_and_cache(
         "embeddings": torch.stack(embeddings_list),          # (N, 512)
         "labels": torch.tensor(labels_list, dtype=torch.long),  # (N,)
         "views": views_list,
-        "paths": paths_list,  # 与上列一一对应，供 lora_run 等与缓存对齐的视频路径
+        "paths": paths_list,  # 与上列一一对应，供 finetuning 等与缓存对齐的视频路径
     }
     torch.save(cache, cache_path)
     print(f"特征缓存已保存 → {cache_path}  ({len(labels_list)} 个样本)")

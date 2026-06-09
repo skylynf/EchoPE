@@ -213,7 +213,7 @@ def run_comparison(args: argparse.Namespace) -> dict[str, object]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Compare two interpretable_run output directories sample-by-sample.")
+    parser = argparse.ArgumentParser(description="Compare two interpretability output directories sample-by-sample.")
     parser.add_argument("--baseline-dir", type=Path, required=True)
     parser.add_argument("--candidate-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=None)

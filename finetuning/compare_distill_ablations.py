@@ -17,7 +17,7 @@ KD + view 辅助 消融对比实验
   F. LoRA + KD-combo                    —— 联合（回答 RQ1）
   G. LoRA + KD-combo + view-aux=ce      —— 全开（回答 RQ2）
 
-用法（在 lora_run 目录下）：
+用法（在 finetuning 目录下）：
   ../../.venv/bin/python compare_distill_ablations.py
   ../../.venv/bin/python compare_distill_ablations.py --folds 0 1 2 --epochs 80
   ../../.venv/bin/python compare_distill_ablations.py --configs A B F G   # 只跑指定配置

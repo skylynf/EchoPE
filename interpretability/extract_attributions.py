@@ -22,8 +22,8 @@ from torchvision.models.video.mvit import _add_rel_pos, _add_shortcut
 
 HERE = Path(__file__).resolve().parent
 EXP_ROOT = HERE.parent
-FULL_RUN_ROOT = EXP_ROOT / "full_run"
-LORA_RUN_ROOT = EXP_ROOT / "lora_run"
+FULL_RUN_ROOT = EXP_ROOT / "classification"
+LORA_RUN_ROOT = EXP_ROOT / "finetuning"
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 if str(EXP_ROOT) not in sys.path:
@@ -33,8 +33,8 @@ if str(FULL_RUN_ROOT) not in sys.path:
 if str(LORA_RUN_ROOT) not in sys.path:
     sys.path.insert(0, str(LORA_RUN_ROOT))
 
-from full_run.data import COARSE_VIEW_TO_IDX  # noqa: E402
-from lora_run.train_lora import MEAN, STD, preprocess_single_video  # noqa: E402
+from classification.data import COARSE_VIEW_TO_IDX  # noqa: E402
+from finetuning.train_lora import MEAN, STD, preprocess_single_video  # noqa: E402
 
 from load_interpret_model import (  # noqa: E402
     default_interpret_output_dir,
@@ -685,8 +685,8 @@ def run_extraction(args: argparse.Namespace) -> dict[str, object]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Extract embedding, attention, gradient, and temporal interpretability artifacts for a full-run EchoPrime checkpoint.")
-    parser.add_argument("--checkpoint", type=Path, required=True, help="Path to full_run best_checkpoint.pt")
-    parser.add_argument("--output-dir", type=Path, default=None, help="Interpretability output directory. Defaults to interpretable_run/outputs/<seed>/<task>.")
+    parser.add_argument("--checkpoint", type=Path, required=True, help="Path to classification best_checkpoint.pt")
+    parser.add_argument("--output-dir", type=Path, default=None, help="Interpretability output directory. Defaults to interpretability/outputs/<seed>/<task>.")
     parser.add_argument("--task", choices=["pooled", "A4", "PSL", "PSS", "Subcostal"], default=None)
     parser.add_argument("--manifest-path", type=Path, default=None)
     parser.add_argument("--dataset-root", type=Path, default=None)

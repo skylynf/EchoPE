@@ -12,7 +12,7 @@ ORIG_CWD = Path.cwd().resolve()
 from analyze_full_run import run_analysis
 from config import DEFAULT_DATASET_ROOT, DEFAULT_OUTPUT_DIR, DEFAULT_SEEDS, DEFAULT_TASKS
 from train_full_run import default_manifest_path, run_experiment, task_run_name
-from lora_run.train_lora import add_augmentation_args, build_augmentation_config
+from finetuning.train_lora import add_augmentation_args, build_augmentation_config
 
 
 def build_parser() -> argparse.ArgumentParser:

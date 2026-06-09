@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import math
-import random
 import sys
 from pathlib import Path
 
@@ -12,7 +10,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score, roc_auc_score
-from torch.utils.data import DataLoader, WeightedRandomSampler
 
 HERE = Path(__file__).resolve().parent
 EXP_ROOT = HERE.parent
@@ -27,37 +24,27 @@ from echo_paths import ECHO_ROOT, setup_echo_root_cwd  # noqa: E402
 setup_echo_root_cwd()
 
 from config import (  # noqa: E402
-    BEST_MODEL_METRIC,
     DEFAULT_DATASET_ROOT,
     DEFAULT_FIXED_THRESHOLD,
-    DEFAULT_OUTPUT_DIR,
-    DEFAULT_TEST_FRAC,
     DEFAULT_THRESHOLD_MODE,
-    DEFAULT_VAL_FRAC_TOTAL,
 )
-from data import (  # noqa: E402
-    TASKS,
-    load_split_manifest,
-    make_or_load_manifest,
-    manifest_records,
-    records_to_samples,
-)
-from evaluate_full_run import evaluate_prediction_rows  # noqa: E402
-from lora_run.aux_heads import load_view_teacher  # noqa: E402
-from lora_run.distill import load_frozen_teacher  # noqa: E402
-from lora_run.train_lora import (  # noqa: E402
+from data import RAW_TO_COARSE_VIEW  # noqa: E402
+from evaluate_binary_cv import evaluate_predictions_extended  # noqa: E402
+from finetuning.aux_heads import load_view_teacher  # noqa: E402
+from finetuning.distill import load_frozen_teacher  # noqa: E402
+from finetuning.train_lora import (  # noqa: E402
     HEAD_REGISTRY,
     TARGET_MODULE_PATTERNS,
     add_augmentation_args,
     build_augmentation_config,
     count_parameters,
+    load_cv_fold_samples,
 )
-from lora_run.train_lora_distill import (  # noqa: E402
+from finetuning.train_lora_distill import (  # noqa: E402
     FT_MODES,
     HEAD_VIEW_MODES,
-    NUM_COARSE_VIEWS,
     KD_MODES,
-    PEVideoDatasetWithView,
+    NUM_COARSE_VIEWS,
     VIEW_AUX_MODES,
     LoRAEchoPrimeDistillModel,
     build_classifier,
@@ -65,19 +52,15 @@ from lora_run.train_lora_distill import (  # noqa: E402
     evaluate,
     train_one_epoch,
     view_collate,
+    PEVideoDatasetWithView,
 )
-
-
-def set_seed(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-def default_manifest_path(output_root: Path, seed: int) -> Path:
-    return output_root / "manifests" / f"split_manifest_seed{seed}.json"
+from train_full_run import (  # noqa: E402
+    balanced_take,
+    build_loaders,
+    build_optimizer_and_scheduler,
+    save_prediction_csv,
+    set_seed,
+)
 
 
 def resolve_cli_path(path: str | Path) -> Path:
@@ -85,187 +68,61 @@ def resolve_cli_path(path: str | Path) -> Path:
     return candidate if candidate.is_absolute() else (ORIG_CWD / candidate).resolve()
 
 
-def balanced_take(samples: list[tuple[str, int, str]], n_total: int) -> list[tuple[str, int, str]]:
-    if len(samples) <= n_total:
-        return samples
-    cls0 = [sample for sample in samples if sample[1] == 0][: n_total // 2]
-    cls1 = [sample for sample in samples if sample[1] == 1][: n_total - len(cls0)]
-    reduced = cls0 + cls1
-    return reduced if reduced else samples[:n_total]
+def sample_to_record(sample: tuple[str, int, str] | tuple[str, int, str, int]) -> dict[str, object]:
+    path = str(sample[0])
+    label = int(sample[1])
+    raw_view = str(sample[2])
+    coarse_view = RAW_TO_COARSE_VIEW.get(raw_view, raw_view)
+    label_name = "PE" if label == 1 else "Normal"
+    return {
+        "id": Path(path).stem,
+        "path": path,
+        "label": label,
+        "label_name": label_name,
+        "source_group": label_name,
+        "raw_view": raw_view,
+        "coarse_view": coarse_view,
+    }
 
 
-def align_records_to_samples(
-    records: list[dict[str, object]],
-    samples: list[tuple[str, int, str] | tuple[str, int, str, int]],
-) -> list[dict[str, object]]:
-    by_path = {str(record["path"]): record for record in records}
-    return [by_path[str(sample[0])] for sample in samples]
+def auto_model_label(args: argparse.Namespace) -> str:
+    parts: list[str] = []
+    if args.lora == "on":
+        parts.append("lora")
+    else:
+        parts.append(args.ft_mode)
+    if args.kd_mode != "none":
+        parts.append(f"kd-{args.kd_mode}")
+    if args.view_aux != "none":
+        parts.append(f"view-{args.view_aux}")
+    return "_".join(parts)
 
 
-def task_run_name(task: str, head_view_mode: str) -> str:
-    if head_view_mode == "none":
-        return task
-    return f"{task}__headview_{head_view_mode}"
-
-
-def task_result_label(task: str, head_view_mode: str) -> str:
-    if head_view_mode == "none":
-        return task
-    return f"{task}+headview-{head_view_mode}"
-
-
-def build_loaders(
-    train_samples: list[tuple[str, int, str] | tuple[str, int, str, int]],
-    val_samples: list[tuple[str, int, str] | tuple[str, int, str, int]],
-    test_samples: list[tuple[str, int, str] | tuple[str, int, str, int]],
-    batch_size: int,
-    num_workers: int,
-    augmentation,
-) -> tuple[DataLoader, DataLoader, DataLoader, torch.Tensor]:
-    train_labels = torch.tensor([sample[1] for sample in train_samples], dtype=torch.long)
-    class_counts = torch.bincount(train_labels, minlength=2).float().clamp(min=1)
-    sample_weights = (1.0 / class_counts)[train_labels]
-    sampler = WeightedRandomSampler(sample_weights, len(train_labels), replacement=True)
-
-    train_loader = DataLoader(
-        PEVideoDatasetWithView(train_samples, training=True, augmentation=augmentation),
-        batch_size=batch_size,
-        sampler=sampler,
-        num_workers=num_workers,
-        pin_memory=True,
-        collate_fn=view_collate,
-    )
-    val_loader = DataLoader(
-        PEVideoDatasetWithView(val_samples),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
-        collate_fn=view_collate,
-    )
-    test_loader = DataLoader(
-        PEVideoDatasetWithView(test_samples),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
-        collate_fn=view_collate,
-    )
-    return train_loader, val_loader, test_loader, class_counts
-
-
-def build_optimizer_and_scheduler(
-    model: LoRAEchoPrimeDistillModel,
-    args: argparse.Namespace,
-    train_loader: DataLoader,
-) -> tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR]:
-    enc_params = [p for p in model.encoder.parameters() if p.requires_grad]
-    head_params = [p for p in model.classifier.parameters() if p.requires_grad]
-    aux_params: list[nn.Parameter] = []
-    if model.view_ce_head is not None:
-        aux_params.extend(model.view_ce_head.parameters())
-    if model.view_kd_head is not None:
-        aux_params.extend(model.view_kd_head.parameters())
-
-    param_groups = []
-    if enc_params:
-        param_groups.append({"params": enc_params, "lr": args.lr, "weight_decay": args.weight_decay})
-    if head_params:
-        param_groups.append({"params": head_params, "lr": args.head_lr, "weight_decay": 1e-4})
-    if aux_params:
-        param_groups.append({"params": aux_params, "lr": args.head_lr, "weight_decay": 1e-4})
-    if not param_groups:
-        raise RuntimeError("No trainable parameters found.")
-
-    optimizer = torch.optim.AdamW(param_groups)
-    steps_per_epoch = math.ceil(len(train_loader) / max(args.grad_accum, 1))
-    total_steps = max(1, args.epochs * steps_per_epoch)
-    warmup_steps = max(0, args.warmup_epochs * steps_per_epoch)
-
-    def lr_lambda(step: int) -> float:
-        if step < warmup_steps:
-            return step / max(1, warmup_steps)
-        progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
-        return 0.5 * (1.0 + math.cos(math.pi * progress))
-
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
-    return optimizer, scheduler
-
-
-def save_prediction_csv(
-    path: Path,
-    split_name: str,
-    records: list[dict[str, object]],
-    probabilities: np.ndarray,
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    mode = "a" if path.exists() else "w"
-    with path.open(mode, encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        if mode == "w":
-            writer.writerow(
-                [
-                    "split",
-                    "id",
-                    "path",
-                    "label",
-                    "label_name",
-                    "source_group",
-                    "raw_view",
-                    "coarse_view",
-                    "prob_pe",
-                ]
-            )
-        for record, prob in zip(records, probabilities.tolist()):
-            writer.writerow(
-                [
-                    split_name,
-                    record["id"],
-                    record["path"],
-                    record["label"],
-                    record["label_name"],
-                    record["source_group"],
-                    record["raw_view"],
-                    record["coarse_view"],
-                    float(prob),
-                ]
-            )
-
-
-def run_experiment(args: argparse.Namespace) -> dict[str, object]:
+def run_fold(args: argparse.Namespace) -> dict[str, object]:
     set_seed(args.seed)
-    if args.head_view_mode != "none" and args.task != "pooled":
-        raise ValueError(
-            f"head_view_mode={args.head_view_mode!r} is only supported for task='pooled', got {args.task!r}."
-        )
     output_root = resolve_cli_path(args.output_root)
     output_root.mkdir(parents=True, exist_ok=True)
-    manifest_path = resolve_cli_path(args.manifest_path) if args.manifest_path else default_manifest_path(output_root, args.seed)
-    manifest_path = make_or_load_manifest(
-        manifest_path,
-        dataset_root=resolve_cli_path(args.dataset_root),
-        test_frac=args.test_frac,
-        val_frac_total=args.val_frac_total,
-        seed=args.seed,
-        force_rebuild=args.force_manifest,
-    )
-    payload = load_split_manifest(manifest_path)
 
-    train_records = manifest_records(payload, "train", task=args.task)
-    val_records = manifest_records(payload, "val", task=args.task)
-    test_records = manifest_records(payload, "test", task=args.task)
-    include_coarse_view_idx = args.head_view_mode == "coarse4"
-    train_samples = records_to_samples(train_records, include_coarse_view_idx=include_coarse_view_idx)
-    val_samples = records_to_samples(val_records, include_coarse_view_idx=include_coarse_view_idx)
-    test_samples = records_to_samples(test_records, include_coarse_view_idx=include_coarse_view_idx)
+    fold_samples = load_cv_fold_samples(
+        resolve_cli_path(args.cv_splits),
+        args.fold,
+        resolve_cli_path(args.dataset_root),
+    )
+    train_samples = fold_samples["train"]
+    val_samples = fold_samples["val"]
+    test_samples = fold_samples["test"]
+
+    train_records = [sample_to_record(sample) for sample in train_samples]
+    val_records = [sample_to_record(sample) for sample in val_samples]
+    test_records = [sample_to_record(sample) for sample in test_samples]
 
     if args.smoke:
         train_samples = balanced_take(train_samples, 8)
         val_samples = balanced_take(val_samples, 4)
         test_samples = balanced_take(test_samples, 4)
-        train_records = align_records_to_samples(train_records, train_samples)
-        val_records = align_records_to_samples(val_records, val_samples)
-        test_records = align_records_to_samples(test_records, test_samples)
+        train_records = [sample_to_record(sample) for sample in train_samples]
+        val_records = [sample_to_record(sample) for sample in val_samples]
+        test_records = [sample_to_record(sample) for sample in test_samples]
         args.epochs = min(args.epochs, 2)
         args.patience = min(args.patience, 2)
         args.batch = min(args.batch, 2)
@@ -274,18 +131,16 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
         args.kd_warmup_epochs = 0
 
     if not train_samples or not val_samples or not test_samples:
-        raise RuntimeError(f"Task {args.task} has an empty split. Check the manifest at {manifest_path}.")
+        raise RuntimeError(f"Fold {args.fold} contains an empty split.")
 
     if args.view_aux in ("ce", "both"):
         unsupported = sorted({sample[2] for sample in train_samples if sample[2] not in {"A4", "PSS"}})
         if unsupported:
             raise ValueError(
-                f"view_aux={args.view_aux!r} only supports raw views A4/PSS, but task {args.task} includes {unsupported}."
+                f"view_aux={args.view_aux!r} only supports raw views A4/PSS, got {unsupported}."
             )
 
-    run_name = task_run_name(args.task, args.head_view_mode)
-    run_label = task_result_label(args.task, args.head_view_mode)
-    run_dir = output_root / f"seed-{args.seed}" / run_name
+    run_dir = output_root / f"fold-{args.fold}"
     run_dir.mkdir(parents=True, exist_ok=True)
     predictions_csv = run_dir / "predictions.csv"
     if predictions_csv.exists():
@@ -333,16 +188,17 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
     criterion = nn.CrossEntropyLoss(weight=class_weight)
     scaler = torch.amp.GradScaler("cuda", enabled=(device.type == "cuda"))
 
+    history: list[dict[str, float]] = []
     best_val_auc = -1.0
     best_epoch = 0
     best_state: dict[str, torch.Tensor] | None = None
-    history: list[dict[str, float]] = []
     no_improve = 0
 
-    print(f"[task={run_label} seed={args.seed}] train={len(train_samples)} val={len(val_samples)} test={len(test_samples)}")
     print(
-        f"[model] lora={args.lora} ft_mode={args.ft_mode} kd={args.kd_mode} "
-        f"view_aux={args.view_aux} head_view_mode={args.head_view_mode}"
+        f"[fold={args.fold}] train={len(train_samples)} val={len(val_samples)} test={len(test_samples)}"
+    )
+    print(
+        f"[model] lora={args.lora} ft_mode={args.ft_mode} kd={args.kd_mode} view_aux={args.view_aux}"
     )
 
     for epoch in range(1, args.epochs + 1):
@@ -365,6 +221,7 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
             val_auc = float(roc_auc_score(val_y, val_prob))
         except ValueError:
             val_auc = float("nan")
+
         history.append(
             {
                 "epoch": epoch,
@@ -377,6 +234,7 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
                 "val_roc_auc": float(val_auc),
             }
         )
+
         improved = (val_auc > best_val_auc) if not math.isnan(val_auc) else False
         if improved:
             best_val_auc = val_auc
@@ -397,7 +255,7 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
     save_prediction_csv(predictions_csv, "val", val_records, val_prob)
     save_prediction_csv(predictions_csv, "test", test_records, test_prob)
 
-    eval_result = evaluate_prediction_rows(
+    eval_result = evaluate_predictions_extended(
         rows=[
             *[
                 {
@@ -431,7 +289,8 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
         output_dir=run_dir / "evaluation",
         threshold_mode=args.threshold_mode,
         fixed_threshold=args.fixed_threshold,
-        include_test_subgroups=(args.task == "pooled"),
+        target_recall=args.target_recall,
+        include_test_subgroups=True,
     )
 
     checkpoint_path = run_dir / "best_checkpoint.pt"
@@ -439,21 +298,18 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
         {
             "model_state": best_state or model.state_dict(),
             "args": vars(args),
-            "task": args.task,
-            "task_label": run_label,
-            "seed": args.seed,
-            BEST_MODEL_METRIC: best_val_auc,
+            "fold": int(args.fold),
+            "model_label": auto_model_label(args),
+            "val_roc_auc": float(best_val_auc),
         },
         checkpoint_path,
     )
 
     trainable, total = count_parameters(model)
     result = {
-        "task": args.task,
-        "task_label": run_label,
-        "head_view_mode": args.head_view_mode,
-        "seed": int(args.seed),
-        "manifest_path": str(manifest_path),
+        "fold": int(args.fold),
+        "model_label": auto_model_label(args),
+        "cv_splits": str(resolve_cli_path(args.cv_splits)),
         "dataset_root": str(resolve_cli_path(args.dataset_root)),
         "run_dir": str(run_dir.resolve()),
         "augmentation": aug_config.to_dict(),
@@ -467,16 +323,21 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
         "trainable_params": int(trainable),
         "total_params": int(total),
         "best_epoch": int(best_epoch),
-        BEST_MODEL_METRIC: float(best_val_auc),
+        "val_roc_auc": float(best_val_auc),
         "history": history,
         "artifacts": {
             "predictions_csv": str(predictions_csv.resolve()),
             "checkpoint_pt": str(checkpoint_path.resolve()),
-            "metrics_json": eval_result["artifacts"]["metrics_json"],
+            "metrics_standard_json": eval_result["standard"]["artifacts"]["metrics_json"],
+            "metrics_extended_json": eval_result["artifacts"]["metrics_extended_json"],
+            "auroc_curve_val_csv": eval_result["standard"]["artifacts"]["roc_val_csv"],
+            "auroc_curve_test_csv": eval_result["standard"]["artifacts"]["roc_test_csv"],
+            "aupr_curve_val_csv": eval_result["standard"]["artifacts"]["pr_val_csv"],
+            "aupr_curve_test_csv": eval_result["standard"]["artifacts"]["pr_test_csv"],
+            "threshold_sweep_val_csv": eval_result["standard"]["artifacts"]["threshold_sweep_val_csv"],
         },
         "evaluation": eval_result,
     }
-
     result_json = run_dir / "result.json"
     result_json.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"[done] wrote {result_json}")
@@ -484,17 +345,16 @@ def run_experiment(args: argparse.Namespace) -> dict[str, object]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Fine-tune EchoPrime on the full PE dataset for pooled/per-view tasks.")
+    parser = argparse.ArgumentParser(
+        description="Train binary PE baselines on external 5-fold CV splits."
+    )
     parser.add_argument("--dataset-root", type=Path, default=DEFAULT_DATASET_ROOT)
-    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--manifest-path", type=Path, default=None)
-    parser.add_argument("--force-manifest", action="store_true", help="Regenerate the split manifest even if it exists.")
-    parser.add_argument("--task", choices=TASKS, default="pooled")
-    parser.add_argument("--seed", type=int, default=2024)
-    parser.add_argument("--test-frac", type=float, default=DEFAULT_TEST_FRAC)
-    parser.add_argument("--val-frac-total", type=float, default=DEFAULT_VAL_FRAC_TOTAL)
+    parser.add_argument("--cv-splits", type=Path, required=True)
+    parser.add_argument("--fold", type=int, required=True)
+    parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--threshold-mode", choices=("youden", "f1", "fixed"), default=DEFAULT_THRESHOLD_MODE)
     parser.add_argument("--fixed-threshold", type=float, default=DEFAULT_FIXED_THRESHOLD)
+    parser.add_argument("--target-recall", type=float, default=0.90)
 
     parser.add_argument("--lora", choices=["on", "off"], default="off")
     parser.add_argument("--ft-mode", choices=list(FT_MODES), default="full")
@@ -530,6 +390,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--num-workers", type=int, default=4, dest="num_workers")
     parser.add_argument("--teacher-device", default="", dest="teacher_device")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--smoke", action="store_true")
     add_augmentation_args(parser)
     return parser
@@ -537,9 +398,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    run_experiment(args)
+    run_fold(args)
 
 
 if __name__ == "__main__":
     main()
-

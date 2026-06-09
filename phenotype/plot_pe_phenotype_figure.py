@@ -45,12 +45,12 @@ COLOR_TEXT = "#222222"
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
-        description="Plot Nature-style PE-vs-Normal figure from saved text_run analysis results."
+        description="Plot Nature-style PE-vs-Normal figure from saved phenotype analysis results."
     )
     ap.add_argument(
         "--analysis-dir",
         type=Path,
-        default=Path("experiments/text_run/results/analysis"),
+        default=Path("experiments/phenotype/results/analysis"),
         help="Analysis output directory relative to the EchoPrime root.",
     )
     ap.add_argument(

@@ -28,7 +28,7 @@ def load_case_panel(interpret_dir: Path, cases_csv: Path | None) -> pd.DataFrame
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate weak foreground/background/border/probe masks for ROI analysis.")
-    parser.add_argument("--interpret-dir", type=Path, required=True, help="An existing interpretable_run output directory.")
+    parser.add_argument("--interpret-dir", type=Path, required=True, help="An existing interpretability output directory.")
     parser.add_argument("--cases-csv", type=Path, default=None, help="Optional selected case panel CSV.")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--threshold", type=float, default=8.0)

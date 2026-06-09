@@ -14,8 +14,8 @@ from torch.utils.data import DataLoader
 
 HERE = Path(__file__).resolve().parent
 EXP_ROOT = HERE.parent
-FULL_RUN_ROOT = EXP_ROOT / "full_run"
-LORA_RUN_ROOT = EXP_ROOT / "lora_run"
+FULL_RUN_ROOT = EXP_ROOT / "classification"
+LORA_RUN_ROOT = EXP_ROOT / "finetuning"
 ORIG_CWD = Path.cwd().resolve()
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
@@ -30,16 +30,16 @@ from echo_paths import ECHO_ROOT, setup_echo_root_cwd  # noqa: E402
 
 setup_echo_root_cwd()
 
-from full_run.config import DEFAULT_DATASET_ROOT  # noqa: E402
-from full_run.data import (  # noqa: E402
+from classification.config import DEFAULT_DATASET_ROOT  # noqa: E402
+from classification.data import (  # noqa: E402
     TASKS,
     load_split_manifest,
     make_or_load_manifest,
     manifest_records,
     records_to_samples,
 )
-from lora_run.train_lora import count_parameters  # noqa: E402
-from lora_run.train_lora_distill import (  # noqa: E402
+from finetuning.train_lora import count_parameters  # noqa: E402
+from finetuning.train_lora_distill import (  # noqa: E402
     LoRAEchoPrimeDistillModel,
     NUM_COARSE_VIEWS,
     PEVideoDatasetWithView,
@@ -47,7 +47,7 @@ from lora_run.train_lora_distill import (  # noqa: E402
     build_encoder,
     view_collate,
 )
-from full_run.train_full_run import default_manifest_path  # noqa: E402
+from classification.train_full_run import default_manifest_path  # noqa: E402
 
 
 def resolve_cli_path(path: str | Path) -> Path:
@@ -127,7 +127,7 @@ def infer_manifest_path(
     output_root = getattr(checkpoint_args, "output_root", None)
     if output_root is not None:
         return resolve_cli_path(default_manifest_path(resolve_cli_path(path_like(output_root)), seed))
-    return resolve_cli_path(default_manifest_path(ECHO_ROOT / "experiments" / "full_run" / "outputs", seed))
+    return resolve_cli_path(default_manifest_path(ECHO_ROOT / "experiments" / "classification" / "outputs", seed))
 
 
 def ensure_manifest(

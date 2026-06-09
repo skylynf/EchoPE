@@ -15,8 +15,8 @@ from tqdm import tqdm
 
 HERE = Path(__file__).resolve().parent
 EXP_ROOT = HERE.parent
-INTERPRET_ROOT = EXP_ROOT / "interpretable_run"
-FULL_RUN_ROOT = EXP_ROOT / "full_run"
+INTERPRET_ROOT = EXP_ROOT / "interpretability"
+FULL_RUN_ROOT = EXP_ROOT / "classification"
 LAUNCH_CWD = Path(os.environ.get("PWD", str(Path.cwd()))).resolve()
 for path in (EXP_ROOT, INTERPRET_ROOT, FULL_RUN_ROOT):
     if str(path) not in sys.path:
@@ -27,7 +27,7 @@ from echo_paths import setup_echo_root_cwd  # noqa: E402
 setup_echo_root_cwd()
 
 from echo_prime import EchoPrime  # noqa: E402
-from full_run.data import COARSE_VIEW_TO_IDX  # noqa: E402
+from classification.data import COARSE_VIEW_TO_IDX  # noqa: E402
 from load_interpret_model import build_model_from_checkpoint  # noqa: E402
 from roi_utils import load_preprocessed_video  # noqa: E402
 

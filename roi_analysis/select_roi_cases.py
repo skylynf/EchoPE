@@ -80,8 +80,8 @@ def stratified_select(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Select a shared ROI case panel from one or more interpretable_run outputs.")
-    parser.add_argument("--run", action="append", required=True, type=parse_run, help="name=/path/to/interpretable_run/output")
+    parser = argparse.ArgumentParser(description="Select a shared ROI case panel from one or more interpretability outputs.")
+    parser.add_argument("--run", action="append", required=True, type=parse_run, help="name=/path/to/interpretability/output")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--split", default="test")
     parser.add_argument("--view", action="append", default=None, help="Keep a coarse view, e.g. A4 or PSS. Can repeat.")

@@ -13,7 +13,7 @@ if str(HERE) not in sys.path:
 if str(EXP_ROOT) not in sys.path:
     sys.path.insert(0, str(EXP_ROOT))
 
-from full_run.config import DEFAULT_OUTPUT_DIR as FULL_RUN_OUTPUT_DIR  # noqa: E402
+from classification.config import DEFAULT_OUTPUT_DIR as FULL_RUN_OUTPUT_DIR  # noqa: E402
 
 from analyze_interpretability import run_analysis  # noqa: E402
 from extract_attributions import run_extraction  # noqa: E402
@@ -125,7 +125,7 @@ def run_suite(args: argparse.Namespace) -> dict[str, object]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run interpretability extraction + aggregation across multiple full_run checkpoints.")
+    parser = argparse.ArgumentParser(description="Run interpretability extraction + aggregation across multiple classification checkpoints.")
     parser.add_argument("--full-run-output-root", type=Path, default=FULL_RUN_OUTPUT_DIR)
     parser.add_argument("--output-root", type=Path, default=None)
     parser.add_argument("--manifest-path", type=Path, default=None)

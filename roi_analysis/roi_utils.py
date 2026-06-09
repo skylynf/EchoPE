@@ -15,9 +15,9 @@ from matplotlib.path import Path as MplPath
 
 HERE = Path(__file__).resolve().parent
 EXP_ROOT = HERE.parent
-INTERPRET_ROOT = EXP_ROOT / "interpretable_run"
-LORA_ROOT = EXP_ROOT / "lora_run"
-FULL_RUN_ROOT = EXP_ROOT / "full_run"
+INTERPRET_ROOT = EXP_ROOT / "interpretability"
+LORA_ROOT = EXP_ROOT / "finetuning"
+FULL_RUN_ROOT = EXP_ROOT / "classification"
 ORIG_CWD = Path(os.environ.get("PWD", str(Path.cwd()))).resolve()
 for path in (EXP_ROOT, INTERPRET_ROOT, LORA_ROOT, FULL_RUN_ROOT):
     if str(path) not in sys.path:
@@ -84,7 +84,7 @@ def denormalize_video(video: torch.Tensor) -> torch.Tensor:
 
 def load_preprocessed_video(video_path: str | Path) -> torch.Tensor:
     # Import lazily so metadata-only scripts do not require video dependencies such as cv2.
-    from lora_run.train_lora import preprocess_single_video  # noqa: WPS433
+    from finetuning.train_lora import preprocess_single_video  # noqa: WPS433
 
     return preprocess_single_video(str(resolve_path(video_path)), training=False)
 

@@ -30,25 +30,25 @@ The framework has five components:
 
 ## Repository layout
 
-This repository contains **only the experiment code** (the contents of
-`EchoPrime/experiments`). The EchoPrime base model (`echo_prime/`, `utils/`,
-`assets/`, `model_data/`) is **not** vendored here — see *Installation*.
+The repository is organized by function. Each top-level directory is an
+importable package used by the others.
 
 ```
 .
-├── echo_paths.py                 # Resolves the EchoPrime root and sets the working dir for imports
-├── utils/split_cv.py             # Builds stratified 5-fold CV splits from the dataset manifest
-├── full_run/                     # Main PE binary classification (EchoPE vs EchoPrime+head, 5-fold CV)
-├── lora_run/                     # Fine-tuning strategies: LoRA, KD, partial-FT, view-aux ablations
-├── view_run/                     # Echocardiographic view classification (6-/4-/3-way label spaces)
-├── interpretable_run/            # Stage-1 interpretability: attention / grad / temporal / embeddings
-├── interpretable_roi_run/        # Stage-2 ROI attribution, perturbation, semantic probing
-├── text_run/                     # EchoPrime phenotype probing (zero-shot transfer baseline)
-├── pe_run/                       # Lightweight cached-feature PE classifier prototype
-└── simple_run/                   # Batch EchoPrime inference helper over a video folder
+├── echo_paths.py            # Resolves the project root and sets the working dir for imports
+├── utils/
+│   └── split_cv.py          # Builds stratified 5-fold CV splits from the dataset manifest
+├── classification/          # Main PE binary classification (EchoPE vs EchoPrime+head, 5-fold CV)
+├── finetuning/              # Adaptation strategies: LoRA, knowledge distillation, partial-FT, view-aux
+├── view/                    # Echocardiographic view classification (6-/4-/3-way label spaces)
+├── interpretability/        # Attention / gradient / temporal attribution and embedding analysis
+├── roi_analysis/            # ROI attribution, perturbation, and EchoPrime semantic probing
+├── phenotype/               # EchoPrime phenotype probing (zero-shot transfer baseline)
+├── baseline/                # Lightweight cached-feature PE classifier prototype
+└── inference/               # Batch EchoPrime inference helper over a video folder
 ```
 
-### `full_run/` — main PE binary classification
+### `classification/` — main PE binary classification
 - `config.py` — default experiment configuration.
 - `data.py` — scan the dataset, build the `6-view -> coarse4` mapping and split manifests.
 - `train_full_run.py` — train a single `seed + task` (pooled or per-view) model.
@@ -60,7 +60,7 @@ This repository contains **only the experiment code** (the contents of
 - `analyze_full_run.py` — aggregate multi-seed / multi-task results.
 - `make_temporal_holdout_split.py` — build the temporal hold-out split.
 
-### `lora_run/` — fine-tuning strategies (adaptation ablation)
+### `finetuning/` — adaptation strategies (ablation)
 - `train_lora.py` — pure LoRA fine-tuning of the MViT encoder.
 - `train_lora_distill.py` — full entry point for LoRA + knowledge distillation (KD) + view auxiliary supervision.
 - `distill.py` — KD losses (`cos` / `l2` / `rkd-d` / `rkd-a` / `combo`) and frozen-teacher loading.
@@ -68,7 +68,7 @@ This repository contains **only the experiment code** (the contents of
 - `compare_distill_ablations.py` — 7-configuration (frozen / LoRA / partial-FT, ± KD, ± view-aux) ablation runner.
 - `compare_with_baseline.py` — multi-seed LoRA vs frozen-feature baseline comparison.
 
-### `view_run/` — view classification
+### `view/` — view classification
 - `evaluate_view_classifier.py` — evaluate the frozen EchoPrime view head, mapped to the local label groups.
 - `view_raw_finetune_scaling.py` — 6-way data-scaling experiment (direct / linear-probe / partial-FT / full-FT / scratch).
 - `view_raw_finetune_cv.py` — 6-way external 5-fold CV runner.
@@ -77,18 +77,17 @@ This repository contains **only the experiment code** (the contents of
 - `analyze_view_raw_finetune_scaling.py`, `analyze_view_grouped_finetune_scaling.py` — summary CSVs and plots.
 - `make_nature_label_space_comparison.py` — label-space comparison figures (6-/4-/3-way).
 - `make_nature_embedding_granularity.py` — penultimate-feature UMAP/t-SNE hidden-space figure.
-- `view_raw_finetune_results_v3/analysis/make_nature_plots.py` — figure-generation helper for the 6-way result set.
 
-### `interpretable_run/` — stage-1 interpretability
-- `load_interpret_model.py` — restore a `full_run` checkpoint / manifest / dataloader.
+### `interpretability/` — attention / gradient / temporal analysis
+- `load_interpret_model.py` — restore a classification checkpoint / manifest / dataloader.
 - `extract_attributions.py` — extract embeddings, attention, gradient×input, and temporal occlusion curves.
 - `analyze_interpretability.py` — view-level and representation-level aggregation (PCA, probes, retrieval).
 - `compare_interpret_runs.py` — compare frozen-head vs full-fine-tune interpretability outputs.
 - `run_interpret_suite.py` — multi-seed / multi-task batch runner.
 - `make_nature_case_figure.py` — per-case interpretability figure.
-- `temporal_attention_head.py` — optional lightweight temporal-pooling head (stage-2 reserved branch).
+- `temporal_attention_head.py` — optional lightweight temporal-pooling head.
 
-### `interpretable_roi_run/` — stage-2 ROI / perturbation / semantics
+### `roi_analysis/` — ROI / perturbation / semantics
 - `select_roi_cases.py` — select a shared case panel across models.
 - `make_weak_context_masks.py` — generate weak acquisition-context masks (foreground / background / sector border / probe near-field).
 - `quantify_roi_attribution.py` — ROI mass, enrichment, and top-10% overlap.
@@ -98,14 +97,14 @@ This repository contains **only the experiment code** (the contents of
 - `summarize_for_paper.py` — paper-ready tables and compact figures.
 - `roi_utils.py`, `roi_annotation_schema.json` — ROI utilities and the annotation schema.
 
-### `text_run/` — EchoPrime phenotype probing baseline
+### `phenotype/` — EchoPrime phenotype probing baseline
 - `run_echoprime_pe_phenotypes.py` — per-video EchoPrime `predict_metrics()` phenotype predictions.
 - `analyze_pe_phenotype_correlations.py` — focus-phenotype statistics and plot-ready data.
 - `plot_pe_phenotype_figure.py` — Normal-vs-PE phenotype figure from saved analysis.
 
-### `pe_run/` and `simple_run/`
-- `pe_run/train_pe_classifier.py`, `pe_run/compare_heads.py` — early cached-feature PE classifier prototype and head comparison.
-- `simple_run/run_testset.py` — batch EchoPrime inference / report helper over a video folder.
+### `baseline/` and `inference/`
+- `baseline/train_pe_classifier.py`, `baseline/compare_heads.py` — early cached-feature PE classifier prototype and head comparison.
+- `inference/run_testset.py` — batch EchoPrime inference / report helper over a video folder.
 
 ---
 
@@ -132,45 +131,25 @@ repository.
 
 ---
 
-## Installation
+## Setup
 
-The experiment scripts import the EchoPrime model code and read `model_data/`
-from the EchoPrime repository root. `echo_paths.py` assumes this repository lives
-at `EchoPrime/experiments`:
-
-```python
-ECHO_ROOT = Path(__file__).resolve().parent.parent   # -> the EchoPrime repo root
-```
-
-Set up as follows:
+Create a Python environment and install the dependencies:
 
 ```bash
-# 1) Clone the official EchoPrime repository.
-git clone https://github.com/echonet/EchoPrime
-cd EchoPrime
-
-# 2) Download and unpack the EchoPrime model data (weights + assets).
-wget https://github.com/echonet/EchoPrime/releases/download/v1.0.0/model_data.zip
-wget https://github.com/echonet/EchoPrime/releases/download/v1.0.0/candidate_embeddings_p1.pt
-wget https://github.com/echonet/EchoPrime/releases/download/v1.0.0/candidate_embeddings_p2.pt
-unzip model_data.zip
-mv candidate_embeddings_p1.pt model_data/candidates_data/
-mv candidate_embeddings_p2.pt model_data/candidates_data/
-
-# 3) Place THIS repository as the EchoPrime experiments directory.
-git clone git@github.com:skylynf/EchoPE.git experiments
-
-# 4) Create an environment and install dependencies.
 python -m venv .venv && source .venv/bin/activate
+# Install the CUDA 12.8 PyTorch build used for the manuscript:
 pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
-pip install -r experiments/requirements.txt
-pip install -r requirements.txt   # EchoPrime base requirements
+pip install -r requirements.txt
 ```
 
-Run scripts from inside their run directory, e.g.:
+`echo_paths.py` resolves the project root and switches the working directory so
+that the EchoPrime model package (`echo_prime`, `utils`) and its `model_data`
+weights are importable; the EchoPE echo/view encoders are initialized from those
+released EchoPrime weights. Run each script from inside its package directory,
+e.g.:
 
 ```bash
-cd experiments/full_run
+cd classification
 python run_full_suite.py --device cuda
 ```
 
@@ -209,41 +188,41 @@ seeds / label spaces can be launched on different devices (e.g. `--device cuda:0
 
 ## Reproducing the paper results
 
-Experiment directory to manuscript Results section mapping.
+Package to manuscript Results section mapping.
 
-| Results section / figure | Directory | Key scripts |
+| Results section / figure | Package | Key scripts |
 | --- | --- | --- |
-| Zero-shot EchoPrime phenotype transfer (Fig. performance a) | `text_run/` | `run_echoprime_pe_phenotypes.py` → `analyze_pe_phenotype_correlations.py` → `plot_pe_phenotype_figure.py` |
-| EchoPE vs EchoPrime+head, 5-fold ROC/PR (Fig. performance b) | `full_run/` | `train_cv_binary.py`, `evaluate_full_run.py`, `evaluate_binary_cv.py`, `export_cv_curve_data.py` |
-| Fine-tuning-strategy ablation (Fig. performance c, d) | `lora_run/` + `full_run/` | `compare_distill_ablations.py`, `train_lora_distill.py`, `train_cv_binary.py` |
-| View-stratified PE performance (Fig. performance e) | `full_run/` | `run_full_suite.py` (per-view tasks), `analyze_full_run.py` |
-| View classification analysis (Fig. view a–d) | `view_run/` | `view_raw_finetune_scaling.py`, `view_raw_finetune_cv.py`, `view_grouped_finetune_scaling.py`, `make_nature_*` |
-| Interpretability (Fig. interpret a–c) | `interpretable_run/` + `interpretable_roi_run/` | `extract_attributions.py`, `analyze_interpretability.py`, then `select_roi_cases.py` → `make_weak_context_masks.py` → `quantify_roi_attribution.py` → `run_roi_perturbation.py` → `run_report_semantics.py` → `summarize_for_paper.py` |
+| Zero-shot EchoPrime phenotype transfer (Fig. performance a) | `phenotype/` | `run_echoprime_pe_phenotypes.py` → `analyze_pe_phenotype_correlations.py` → `plot_pe_phenotype_figure.py` |
+| EchoPE vs EchoPrime+head, 5-fold ROC/PR (Fig. performance b) | `classification/` | `train_cv_binary.py`, `evaluate_full_run.py`, `evaluate_binary_cv.py`, `export_cv_curve_data.py` |
+| Fine-tuning-strategy ablation (Fig. performance c, d) | `finetuning/` + `classification/` | `compare_distill_ablations.py`, `train_lora_distill.py`, `train_cv_binary.py` |
+| View-stratified PE performance (Fig. performance e) | `classification/` | `run_full_suite.py` (per-view tasks), `analyze_full_run.py` |
+| View classification analysis (Fig. view a–d) | `view/` | `view_raw_finetune_scaling.py`, `view_raw_finetune_cv.py`, `view_grouped_finetune_scaling.py`, `make_nature_*` |
+| Interpretability (Fig. interpret a–c) | `interpretability/` + `roi_analysis/` | `extract_attributions.py`, `analyze_interpretability.py`, then `select_roi_cases.py` → `make_weak_context_masks.py` → `quantify_roi_attribution.py` → `run_roi_perturbation.py` → `run_report_semantics.py` → `summarize_for_paper.py` |
 
 Representative commands:
 
 ```bash
 # Main 5-fold PE classification (EchoPE: full fine-tune + residual head)
-cd experiments/full_run
+cd classification
 python train_cv_binary.py --device cuda
 python evaluate_binary_cv.py
 python export_cv_curve_data.py
 
 # Adaptation-strategy ablation (frozen / LoRA / partial-FT, +/- KD, +/- view-aux)
-cd ../lora_run
+cd ../finetuning
 python compare_distill_ablations.py --seeds 42 123 456 --epochs 20
 
 # View classification (6-way data scaling + external 5-fold CV)
-cd ../view_run
+cd ../view
 python view_raw_finetune_scaling.py --output-dir ./view_raw_finetune_results_v3 \
   --seeds 2024 2025 2026 --ratios 0.15 0.30 0.50 0.75 1.00 --epochs 40 --device cuda
 python view_raw_finetune_cv.py --output-dir ./view_raw_finetune_cv_seed2026 \
   --method pretrained_full_ft --epochs 40 --device cuda
 
-# Interpretability (stage 1 then stage 2 ROI)
-cd ../interpretable_run
-python extract_attributions.py --checkpoint ../full_run/outputs/seed-2024/pooled/best_checkpoint.pt --save-figures
-python analyze_interpretability.py --checkpoint ../full_run/outputs/seed-2024/pooled/best_checkpoint.pt
+# Interpretability (attribution then ROI analysis)
+cd ../interpretability
+python extract_attributions.py --checkpoint ../classification/outputs/seed-2024/pooled/best_checkpoint.pt --save-figures
+python analyze_interpretability.py --checkpoint ../classification/outputs/seed-2024/pooled/best_checkpoint.pt
 ```
 
 All result artifacts (checkpoints, per-fold predictions, summary CSVs, figures)
@@ -261,16 +240,15 @@ code is versioned here.
   ultrasound videos and cannot be released publicly. It is available from the
   corresponding author on reasonable request, subject to institutional review
   board approval and a data-use agreement.
-- **Pretrained model.** EchoPE is initialized from EchoPrime; its weights and
-  `model_data` are obtained from the official EchoPrime release and are not
-  redistributed here.
+- **Pretrained model.** EchoPE is initialized from the publicly released EchoPrime
+  model; its weights are not redistributed here.
 
 ## Acknowledgements & citation
 
 EchoPE builds on **EchoPrime** (Vukadinovic et al., *A Multi-Video View-Informed
 Vision-Language Model for Comprehensive Echocardiography Interpretation*,
-https://github.com/echonet/EchoPrime, arXiv:2410.09704). We thank the EchoPrime
-authors for releasing their model and code.
+arXiv:2410.09704). We thank the EchoPrime authors for releasing their model and
+code.
 
 If you use this code, please cite the EchoPE manuscript (under review at *npj
 Digital Medicine*) and the EchoPrime paper.

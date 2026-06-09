@@ -12,13 +12,13 @@ from tqdm import tqdm
 
 HERE = Path(__file__).resolve().parent
 EXP_ROOT = HERE.parent
-INTERPRET_ROOT = EXP_ROOT / "interpretable_run"
-FULL_RUN_ROOT = EXP_ROOT / "full_run"
+INTERPRET_ROOT = EXP_ROOT / "interpretability"
+FULL_RUN_ROOT = EXP_ROOT / "classification"
 for path in (EXP_ROOT, INTERPRET_ROOT, FULL_RUN_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from full_run.data import COARSE_VIEW_TO_IDX  # noqa: E402
+from classification.data import COARSE_VIEW_TO_IDX  # noqa: E402
 from load_interpret_model import build_model_from_checkpoint  # noqa: E402
 from roi_utils import (  # noqa: E402
     load_annotations,

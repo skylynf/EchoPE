@@ -11,7 +11,7 @@ LoRA + 蒸馏 + view 辅助监督  联合微调 EchoPrime 视频编码器进行 
   - --kd-mode {none,cos,l2,rkd-d,rkd-a,combo}  与 frozen EchoPrime teacher 的特征蒸馏
   - --view-aux {none,ce,kd,both}               视角辅助监督模式
 
-用法（在 lora_run 目录下）：
+用法（在 finetuning 目录下）：
   # 1) 现有 LoRA only baseline（与 train_lora.py 等价，作为对照）
   ../../.venv/bin/python train_lora_distill.py
 

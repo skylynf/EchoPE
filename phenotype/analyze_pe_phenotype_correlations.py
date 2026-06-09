@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--predictions",
         type=Path,
-        default=Path("experiments/text_run/results/pe_phenotype_predictions.csv"),
+        default=Path("experiments/phenotype/results/pe_phenotype_predictions.csv"),
         help="Per-video phenotype CSV relative to the EchoPrime root.",
     )
     ap.add_argument(
@@ -63,7 +63,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("experiments/text_run/results/analysis"),
+        default=Path("experiments/phenotype/results/analysis"),
         help="Analysis output directory relative to the EchoPrime root.",
     )
     ap.add_argument(
@@ -227,7 +227,7 @@ def generate_report_examples(df: pd.DataFrame, threshold_map: dict[str, float], 
     setup_echo_root_cwd()
     import utils  # noqa: WPS433
     from echo_prime import EchoPrime  # noqa: WPS433
-    from text_run.run_echoprime_pe_phenotypes import preprocess_single_video  # noqa: WPS433
+    from phenotype.run_echoprime_pe_phenotypes import preprocess_single_video  # noqa: WPS433
 
     ep = EchoPrime()
     cache: dict[str, str] = {}
@@ -404,7 +404,7 @@ def main() -> None:
     print(f"saved_plot_data={plot_data_path}")
     if not args.skip_report_examples:
         print(f"saved_examples={output_dir / 'representative_report_examples.json'}")
-    print("ready_for_plot=EchoPrime/experiments/text_run/plot_pe_phenotype_figure.py")
+    print("ready_for_plot=EchoPrime/experiments/phenotype/plot_pe_phenotype_figure.py")
 
 
 if __name__ == "__main__":

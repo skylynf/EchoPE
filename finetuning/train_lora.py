@@ -5,12 +5,12 @@ LoRA 微调 EchoPrime 视频编码器进行 PE 分类
 策略：对 MViT-v2-s 编码器注入 LoRA 适配器（仅微调低秩增量），
      联合训练分类头，端到端反向传播。
 
-数据集结构（与 pe_run 一致），默认根目录为 EchoPrime 上一级下的 hope_dataset，例如：
+数据集结构（与 baseline 一致），默认根目录为 EchoPrime 上一级下的 hope_dataset，例如：
   /path/to/echoprime/hope_dataset/
   ├── Normal/{A4,PSS}/*.mkv
   └── PE/{A4,PSS}/*.mkv
 
-用法（在 lora_run 目录下）：
+用法（在 finetuning 目录下）：
   ../.venv/bin/python train_lora.py                           # 默认参数
   ../.venv/bin/python train_lora.py --rank 8 --alpha 16       # 自定义 LoRA 秩和 alpha
   ../.venv/bin/python train_lora.py --target-modules qkv proj mlp  # 选择注入目标
@@ -530,7 +530,7 @@ def load_cv_fold_samples(
 
 def samples_from_feature_cache(cache: dict) -> list[tuple[str, int, str]] | None:
     """
-    若 pe_run 特征缓存含 `paths`（与 embeddings/labels/views 行对齐），
+    若 baseline 特征缓存含 `paths`（与 embeddings/labels/views 行对齐），
     返回 [(path, label, view), ...]，供 LoRA 与冻结特征使用同一批视频。
     旧版缓存无 `paths` 时返回 None。
     """
@@ -572,7 +572,7 @@ class PEVideoDataset(Dataset):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  分类头（与 pe_run 保持一致，方便对比）
+#  分类头（与 baseline 保持一致，方便对比）
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class PEClassifier(nn.Module):
