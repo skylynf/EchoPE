@@ -3,8 +3,8 @@
 > **Peer-review notice.** This repository is the code accompanying the manuscript
 > **submitted to *npj Digital Medicine*** and is provided **for peer review only**.
 > It is a code snapshot intended to let reviewers inspect the experimental
-> pipeline; it is not yet a public release. Trained weights and the clinical
-> HOPE dataset are **not** included (see *Code & Data availability*).
+> pipeline; it is not yet a public release. The clinical
+> HOPE dataset are **not** included (see *manuscript*).
 
 EchoPE is a video-classification framework that adapts the large-scale
 echocardiography foundation model **EchoPrime** to a point-of-care ultrasound
@@ -238,32 +238,16 @@ code is versioned here.
 
 ---
 
-## Code & Data availability
-
-- **Code.** This repository is shared with the editors and reviewers for
-  evaluation during peer review. A public release with a permanent DOI will be
-  made available upon acceptance.
-- **Data.** The HOPE dataset contains de-identified emergency-department clinical
-  ultrasound videos and cannot be released publicly. It is available from the
-  corresponding author on reasonable request, subject to institutional review
-  board approval and a data-use agreement.
-- **Pretrained model.** EchoPE is initialized from the publicly released EchoPrime
-  model; its weights are not redistributed here.
-
 ## Acknowledgements & citation
 
-This work uses the publicly released **EchoPrime** pretrained weights. Both the
-EchoPE echo encoder (MViT-v2-s video encoder) and the view encoder (ConvNeXt
-view classifier) are initialized from EchoPrime's pretrained checkpoints, and the
-phenotype-probing and semantic-probing analyses rely on the released EchoPrime
-model. We gratefully acknowledge the EchoPrime authors for releasing these
-pretrained weights and code.
+This work uses the publicly released **EchoPrime** pretrained weights. We gratefully acknowledge the EchoPrime authors for releasing these
+pretrained weights.
 
 EchoPrime: Vukadinovic et al., *A Multi-Video View-Informed Vision-Language Model
 for Comprehensive Echocardiography Interpretation*, arXiv:2410.09704,
 https://github.com/echonet/EchoPrime.
 
-If you use this code, please cite the EchoPE manuscript (under review at *npj
+If you use this code, please cite the EchoPE manuscript (submitted to *npj
 Digital Medicine*) and the EchoPrime paper.
 
 ## License
